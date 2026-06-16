@@ -1,0 +1,188 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    background: transparent;
+    font-family: "Segoe UI", sans-serif;
+    padding: 10px;
+}
+
+/* MAIN WIDGET */
+.prayer-widget {
+    width: 100%;
+    max-width: 950px;      /* reduced from 1400px */
+    margin: 0 auto;
+    background: #FFFFFF;
+    border-radius: 16px;
+    padding: 20px;
+    box-shadow: 0 4px 12px rgba(0,0,0,.08);
+}
+
+/* DATE */
+.date-section {
+    text-align: center;
+    margin-bottom: 15px;
+}
+
+.gregorian {
+    color: #D9B783;
+    font-size: 1.9rem;
+    font-weight: 600;
+}
+
+/* COUNTDOWN */
+.countdown-box {
+    background: #F4F2EE;
+    border-radius: 16px;
+    padding: 20px;
+    text-align: center;
+    margin-bottom: 15px;
+}
+
+.countdown-title {
+    color: #D9B783;
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: 10px;
+}
+
+.countdown-time {
+    font-size: 3.5rem;
+    color: #D9B783;
+    letter-spacing: 4px;
+    font-weight: 300;
+}
+
+.countdown-labels {
+    display: flex;
+    justify-content: center;
+    gap: 40px;
+    margin-top: 8px;
+    color: #D9B783;
+    font-size: 0.8rem;
+}
+
+/* PRAYERS GRID */
+.prayers-grid {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 10px;
+}
+
+/* PRAYER CARDS */
+.prayer-card {
+    background: #F4F2EE;
+    border-radius: 12px;
+    text-align: center;
+    padding: 18px 8px;
+    transition: .3s;
+}
+
+.prayer-card.active {
+    background: #D9B783;
+    color: #FFFFFF;
+    border: 2px solid #D9B783;
+}
+
+.prayer-card.active .prayer-name,
+.prayer-card.active .prayer-time {
+    color: #FFFFFF;
+}
+
+.prayer-name {
+    font-size: 1rem;
+    margin-bottom: 10px;
+    font-weight: 600;
+    color: #D9B783;
+}
+
+.prayer-time {
+    font-size: 1.8rem;
+    font-weight: 300;
+    color: #D9B783;
+}
+
+/* JUMU'AH */
+.jummah-box {
+    background: #F4F2EE;
+    border-radius: 12px;
+    margin-top: 15px;
+    text-align: center;
+    padding: 14px;
+    color: #D9B783;
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+/* TABLET */
+@media (max-width: 900px) {
+
+    .prayers-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+
+    .countdown-time {
+        font-size: 2.8rem;
+    }
+}
+
+/* MOBILE */
+@media (max-width: 600px) {
+
+    .prayer-widget {
+        padding: 12px;
+        border-radius: 12px;
+    }
+
+    .prayers-grid {
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px;
+    }
+
+    .prayer-card {
+        padding: 12px 4px;
+        border-radius: 10px;
+    }
+
+    .countdown-box {
+        padding: 14px;
+        margin-bottom: 12px;
+    }
+
+    .countdown-title {
+        font-size: 0.9rem;
+        margin-bottom: 8px;
+    }
+
+    .countdown-time {
+        font-size: 1.8rem;
+        letter-spacing: 1px;
+    }
+
+    .countdown-labels {
+        gap: 20px;
+        font-size: 0.65rem;
+    }
+
+    .gregorian {
+        font-size: 0.95rem;
+    }
+
+    .prayer-name {
+        font-size: 0.75rem;
+        margin-bottom: 6px;
+    }
+
+    .prayer-time {
+        font-size: 1.1rem;
+    }
+
+    .jummah-box {
+        padding: 10px;
+        font-size: 0.95rem;
+        margin-top: 12px;
+    }
+}

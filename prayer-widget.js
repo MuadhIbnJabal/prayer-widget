@@ -107,7 +107,7 @@ function renderWidget() {
       </div>
 
       <div class="jummah-box">
-        Jumu'ah &nbsp;&nbsp; ${jumuahTime}
+        JUMU'AH &nbsp;&nbsp; ${jumuahTime}
       </div>
 
     </div>

@@ -106,9 +106,9 @@ function renderWidget() {
         `).join("")}
       </div>
 
-      <div class="jummah-box">
-        JUMU'AH &nbsp;&nbsp; ${jumuahTime}
-      </div>
+      <div class="jummah-box" data-prayer="JUMUAH">
+  Jumu'ah &nbsp;&nbsp; ${jumuahTime}
+</div>
 
     </div>
   `;
@@ -145,29 +145,81 @@ function startCountdown() {
 
     for (const p of prayers) {
 
-      // Skip Sunrise
+      // Skip Sunrise completely
       if (p.name === "SUNRISE") continue;
 
-      const [h, m] = p.time.split(":");
+      // Friday: replace Zuhr with Jumu'ah
+      if (
+        now.getDay() === 5 &&
+        p.name === "ZUHR"
+      ) {
 
-      const time = new Date();
-      time.setHours(Number(h), Number(m), 0, 0);
+        const [jh, jm] =
+          jumuahTime.split(":");
 
-      if (time > now) {
-        nextPrayer = { ...p, date: time };
+        const jumuahDate =
+          new Date();
+
+        jumuahDate.setHours(
+          Number(jh),
+          Number(jm),
+          0,
+          0
+        );
+
+        if (jumuahDate > now) {
+
+          nextPrayer = {
+            name: "JUMU'AH",
+            date: jumuahDate
+          };
+
+          break;
+        }
+
+        // Jumu'ah has passed,
+        // move on to Asr
+        continue;
+      }
+
+      const [h, m] =
+        p.time.split(":");
+
+      const prayerDate =
+        new Date();
+
+      prayerDate.setHours(
+        Number(h),
+        Number(m),
+        0,
+        0
+      );
+
+      if (prayerDate > now) {
+
+        nextPrayer = {
+          name: p.name,
+          date: prayerDate
+        };
+
         break;
       }
     }
 
+    // After Isha -> tomorrow's Fajr
     if (!nextPrayer) {
 
-      const fajr = prayers.find(
-        p => p.name === "FAJR"
-      );
+      const fajr =
+        prayers.find(
+          p => p.name === "FAJR"
+        );
 
-      const [h, m] = fajr.time.split(":");
+      const [h, m] =
+        fajr.time.split(":");
 
-      const tomorrow = new Date();
+      const tomorrow =
+        new Date();
+
       tomorrow.setDate(
         tomorrow.getDate() + 1
       );
@@ -180,12 +232,13 @@ function startCountdown() {
       );
 
       nextPrayer = {
-        ...fajr,
+        name: "FAJR",
         date: tomorrow
       };
     }
 
-    const diff = nextPrayer.date - now;
+    const diff =
+      nextPrayer.date - now;
 
     const hrs = Math.floor(
       diff / 3600000
@@ -211,6 +264,7 @@ function startCountdown() {
   }
 
   update();
+
   countdownInterval =
     setInterval(update, 1000);
 }
@@ -227,43 +281,80 @@ function highlightCurrentPrayer() {
 
     for (const p of prayers) {
 
-      // Skip Sunrise
+      // Skip Sunrise completely
       if (p.name === "SUNRISE") continue;
 
-      const [h, m] = p.time.split(":");
+      // Friday: replace Zuhr with Jumu'ah
+      if (
+        now.getDay() === 5 &&
+        p.name === "ZUHR"
+      ) {
 
-      const prayerTime = new Date();
+        const [jh, jm] =
+          jumuahTime.split(":");
 
-      prayerTime.setHours(
+        const jumuahDate =
+          new Date();
+
+        jumuahDate.setHours(
+          Number(jh),
+          Number(jm),
+          0,
+          0
+        );
+
+        if (jumuahDate > now) {
+
+          nextPrayer = "JUMUAH";
+          break;
+        }
+
+        // Jumu'ah has passed,
+        // move on to Asr
+        continue;
+      }
+
+      const [h, m] =
+        p.time.split(":");
+
+      const prayerDate =
+        new Date();
+
+      prayerDate.setHours(
         Number(h),
         Number(m),
         0,
         0
       );
 
-      if (prayerTime > now) {
+      if (prayerDate > now) {
+
         nextPrayer = p.name;
         break;
       }
     }
 
+    // After Isha -> highlight Fajr
     if (!nextPrayer) {
       nextPrayer = "FAJR";
     }
 
-    document.querySelectorAll(
-      ".prayer-card"
-    ).forEach(card => {
+    document
+      .querySelectorAll(
+        ".prayer-card, .jummah-box"
+      )
+      .forEach(element => {
 
-      card.classList.remove("active");
+        element.classList.remove("active");
 
-      if (
-        card.dataset.prayer === nextPrayer
-      ) {
-        card.classList.add("active");
-      }
+        if (
+          element.dataset.prayer ===
+          nextPrayer
+        ) {
+          element.classList.add("active");
+        }
 
-    });
+      });
   }
 
   update();

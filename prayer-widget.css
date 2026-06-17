@@ -117,6 +117,12 @@ body {
     font-weight: 600;
 }
 
+.jummah-box.active {
+    background: #D9B783;
+    color: #FFFFFF;
+    border: 2px solid #D9B783;
+}
+
 /* TABLET */
 @media (max-width: 900px) {
 

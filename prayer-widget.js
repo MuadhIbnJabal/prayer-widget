@@ -1,4 +1,3 @@
-
 const PRAYER_CSV_URL = "prayers.csv";
 
 let allData = [];

@@ -1,8 +1,10 @@
+
 const PRAYER_CSV_URL = "prayers.csv";
 
 let allData = [];
 let prayers = [];
 let jumuahTime = "";
+let selectedDate = "";
 let countdownInterval = null;
 let highlightInterval = null;
 
@@ -11,22 +13,22 @@ let highlightInterval = null;
 async function loadPrayers() {
   try {
     const res = await fetch(PRAYER_CSV_URL);
-    const text = await res.text();
 
+    if (!res.ok) {
+      throw new Error(`Could not load prayers.csv: ${res.status}`);
+    }
+
+    const text = await res.text();
     allData = parseCSV(text);
 
-    const todayData = getTodayData(allData);
-
-    if (!todayData) {
-      console.error("No prayer data found for today.");
+    if (!allData.length) {
+      console.error("No prayer data found in CSV.");
       return;
     }
 
-    prayers = buildPrayers(todayData);
-    jumuahTime = todayData.jumuah || "N/A";
-
-    renderWidget();
-    initLogic();
+    // Use the user's local date, not UTC.
+    selectedDate = getLocalDate(new Date());
+    renderSelectedDate();
 
   } catch (err) {
     console.error("Failed to load CSV:", err);
@@ -36,10 +38,10 @@ async function loadPrayers() {
 /* ---------------- CSV PARSER ---------------- */
 
 function parseCSV(text) {
-  const rows = text.trim().split("\n");
+  const rows = text.trim().split(/\r?\n/);
 
   return rows.slice(1).map(row => {
-    const values = row.split(",");
+    const values = row.split(",").map(value => value.trim());
 
     return {
       date: values[0],
@@ -51,14 +53,38 @@ function parseCSV(text) {
       isha: values[6],
       jumuah: values[7]
     };
-  });
+  }).filter(row => row.date);
 }
 
-/* ---------------- GET TODAY ---------------- */
+/* ---------------- LOCAL DATE HELPERS ---------------- */
 
-function getTodayData(data) {
-  const today = new Date().toISOString().split("T")[0];
-  return data.find(row => row.date === today);
+function getLocalDate(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
+
+function shiftDate(amount) {
+  const date = new Date(`${selectedDate}T12:00:00`);
+  date.setDate(date.getDate() + amount);
+
+  const newDate = getLocalDate(date);
+  const firstDate = allData[0].date;
+  const lastDate = allData[allData.length - 1].date;
+
+  // Do not navigate beyond the dates available in the CSV.
+  if (newDate < firstDate || newDate > lastDate) {
+    return;
+  }
+
+  selectedDate = newDate;
+  renderSelectedDate();
+}
+
+function isToday(dateString) {
+  return dateString === getLocalDate(new Date());
 }
 
 /* ---------------- BUILD PRAYERS ---------------- */
@@ -74,28 +100,98 @@ function buildPrayers(day) {
   ];
 }
 
+/* ---------------- SHOW SELECTED DATE ---------------- */
+
+function renderSelectedDate() {
+  // Stop the previous day's timers before rebuilding the widget.
+  if (countdownInterval) {
+    clearInterval(countdownInterval);
+    countdownInterval = null;
+  }
+
+  if (highlightInterval) {
+    clearInterval(highlightInterval);
+    highlightInterval = null;
+  }
+
+  const dayData = allData.find(row => row.date === selectedDate);
+
+  if (!dayData) {
+    console.error(`No prayer data found for ${selectedDate}.`);
+    return;
+  }
+
+  prayers = buildPrayers(dayData);
+  jumuahTime = dayData.jumuah || "N/A";
+
+  renderWidget();
+
+  // The live countdown and highlighting are for TODAY only.
+  if (isToday(selectedDate)) {
+    initLogic();
+  }
+}
+
 /* ---------------- RENDER UI ---------------- */
 
 function renderWidget() {
   const container = document.getElementById("prayer-widget");
+  const todaySelected = isToday(selectedDate);
+
+  const firstDate = allData[0].date;
+  const lastDate = allData[allData.length - 1].date;
 
   container.innerHTML = `
     <div class="prayer-widget">
 
       <div class="date-section">
+        <button
+          class="date-arrow"
+          id="previous-date"
+          type="button"
+          aria-label="Previous day"
+          ${selectedDate <= firstDate ? "disabled" : ""}
+        >&#8249;</button>
+
         <div class="gregorian"></div>
+
+        <button
+          class="date-arrow"
+          id="next-date"
+          type="button"
+          aria-label="Next day"
+          ${selectedDate >= lastDate ? "disabled" : ""}
+        >&#8250;</button>
       </div>
 
-      <div class="countdown-box">
-        <div class="countdown-title"></div>
-        <div class="countdown-time" id="countdown"></div>
+      ${
+        todaySelected
+          ? `
+            <div class="countdown-box">
+              <div class="countdown-title"></div>
+              <div class="countdown-time" id="countdown"></div>
 
-        <div class="countdown-labels">
-          <span>HOURS</span>
-          <span>MINUTES</span>
-          <span>SECONDS</span>
-        </div>
-      </div>
+              <div class="countdown-labels">
+                <span>HOURS</span>
+                <span>MINUTES</span>
+                <span>SECONDS</span>
+              </div>
+            </div>
+          `
+          : `
+            <div class="masjid-brand-box">
+              <div class="masjid-brand-name">
+                Masjid Mu’adh Ibn Jabal
+              </div>
+
+              <div class="brand-divider"></div>
+
+              <div class="masjid-brand-subtitle">
+                JAMA'AH TIMES
+              </div>
+            </div>
+          `
+      }
 
       <div class="prayers-grid">
         ${prayers.map(p => `
@@ -107,21 +203,30 @@ function renderWidget() {
       </div>
 
       <div class="jummah-box" data-prayer="JUMUAH">
-  JUMU'AH &nbsp;&nbsp; ${jumuahTime}
-</div>
+        JUMU'AH &nbsp;&nbsp; ${jumuahTime}
+      </div>
 
     </div>
   `;
 
   renderDate();
+
+  document.getElementById("previous-date").addEventListener("click", () => {
+    shiftDate(-1);
+  });
+
+  document.getElementById("next-date").addEventListener("click", () => {
+    shiftDate(1);
+  });
 }
 
-/* ---------------- DATE ---------------- */
+/* ---------------- DATE DISPLAY ---------------- */
 
 function renderDate() {
-  const now = new Date();
+  // Parse at midday to avoid date shifts around daylight-saving changes.
+  const date = new Date(`${selectedDate}T12:00:00`);
 
-  const gregorian = now.toLocaleDateString("en-GB", {
+  const gregorian = date.toLocaleDateString("en-GB", {
     weekday: "long",
     day: "numeric",
     month: "long",
@@ -131,105 +236,63 @@ function renderDate() {
   document.querySelector(".gregorian").textContent = gregorian;
 }
 
-
 /* ---------------- COUNTDOWN ---------------- */
 
 function startCountdown() {
-
   function update() {
-
-    if (!prayers.length) return;
+    if (!prayers.length || !document.getElementById("countdown")) return;
 
     const now = new Date();
     let nextPrayer = null;
 
     for (const p of prayers) {
-
-      // Skip Sunrise completely
+      // Skip Sunrise completely.
       if (p.name === "SUNRISE") continue;
 
-      // Friday: replace Zuhr with Jumu'ah
-      if (
-        now.getDay() === 5 &&
-        p.name === "ZUHR"
-      ) {
+      // Friday: replace Zuhr with Jumu'ah.
+      if (now.getDay() === 5 && p.name === "ZUHR") {
+        const [jh, jm] = jumuahTime.split(":");
+        const jumuahDate = new Date();
 
-        const [jh, jm] =
-          jumuahTime.split(":");
-
-        const jumuahDate =
-          new Date();
-
-        jumuahDate.setHours(
-          Number(jh),
-          Number(jm),
-          0,
-          0
-        );
+        jumuahDate.setHours(Number(jh), Number(jm), 0, 0);
 
         if (jumuahDate > now) {
-
           nextPrayer = {
             name: "JUMU'AH",
             date: jumuahDate
           };
-
           break;
         }
 
-        // Jumu'ah has passed,
-        // move on to Asr
+        // Jumu'ah has passed; move on to Asr.
         continue;
       }
 
-      const [h, m] =
-        p.time.split(":");
+      const [h, m] = p.time.split(":");
+      const prayerDate = new Date();
 
-      const prayerDate =
-        new Date();
-
-      prayerDate.setHours(
-        Number(h),
-        Number(m),
-        0,
-        0
-      );
+      prayerDate.setHours(Number(h), Number(m), 0, 0);
 
       if (prayerDate > now) {
-
         nextPrayer = {
           name: p.name,
           date: prayerDate
         };
-
         break;
       }
     }
 
-    // After Isha -> tomorrow's Fajr
+    // After Isha, count down to tomorrow's Fajr.
     if (!nextPrayer) {
+      const fajr = prayers.find(p => p.name === "FAJR");
 
-      const fajr =
-        prayers.find(
-          p => p.name === "FAJR"
-        );
+      if (!fajr) return;
 
-      const [h, m] =
-        fajr.time.split(":");
+      const [h, m] = fajr.time.split(":");
+      const tomorrow = new Date();
 
-      const tomorrow =
-        new Date();
-
-      tomorrow.setDate(
-        tomorrow.getDate() + 1
-      );
-
-      tomorrow.setHours(
-        Number(h),
-        Number(m),
-        0,
-        0
-      );
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      tomorrow.setHours(Number(h), Number(m), 0, 0);
 
       nextPrayer = {
         name: "FAJR",
@@ -237,130 +300,76 @@ function startCountdown() {
       };
     }
 
-    const diff =
-      nextPrayer.date - now;
+    const diff = nextPrayer.date - now;
 
-    const hrs = Math.floor(
-      diff / 3600000
-    );
+    const hrs = Math.floor(diff / 3600000);
+    const mins = Math.floor((diff % 3600000) / 60000);
+    const secs = Math.floor((diff % 60000) / 1000);
 
-    const mins = Math.floor(
-      (diff % 3600000) / 60000
-    );
+    document.getElementById("countdown").textContent =
+      `${String(hrs).padStart(2, "0")} : ${String(mins).padStart(2, "0")} : ${String(secs).padStart(2, "0")}`;
 
-    const secs = Math.floor(
-      (diff % 60000) / 1000
-    );
-
-    document.getElementById(
-      "countdown"
-    ).textContent =
-      `${String(hrs).padStart(2,"0")} : ${String(mins).padStart(2,"0")} : ${String(secs).padStart(2,"0")}`;
-
-    document.querySelector(
-      ".countdown-title"
-    ).textContent =
+    document.querySelector(".countdown-title").textContent =
       `NEXT PRAYER: ${nextPrayer.name}`;
   }
 
   update();
-
-  countdownInterval =
-    setInterval(update, 1000);
+  countdownInterval = setInterval(update, 1000);
 }
-
 
 /* ---------------- HIGHLIGHT NEXT PRAYER ---------------- */
 
 function highlightCurrentPrayer() {
-
   function update() {
-
     const now = new Date();
     let nextPrayer = null;
 
     for (const p of prayers) {
-
-      // Skip Sunrise completely
+      // Skip Sunrise completely.
       if (p.name === "SUNRISE") continue;
 
-      // Friday: replace Zuhr with Jumu'ah
-      if (
-        now.getDay() === 5 &&
-        p.name === "ZUHR"
-      ) {
+      // Friday: replace Zuhr with Jumu'ah.
+      if (now.getDay() === 5 && p.name === "ZUHR") {
+        const [jh, jm] = jumuahTime.split(":");
+        const jumuahDate = new Date();
 
-        const [jh, jm] =
-          jumuahTime.split(":");
-
-        const jumuahDate =
-          new Date();
-
-        jumuahDate.setHours(
-          Number(jh),
-          Number(jm),
-          0,
-          0
-        );
+        jumuahDate.setHours(Number(jh), Number(jm), 0, 0);
 
         if (jumuahDate > now) {
-
           nextPrayer = "JUMUAH";
           break;
         }
 
-        // Jumu'ah has passed,
-        // move on to Asr
         continue;
       }
 
-      const [h, m] =
-        p.time.split(":");
+      const [h, m] = p.time.split(":");
+      const prayerDate = new Date();
 
-      const prayerDate =
-        new Date();
-
-      prayerDate.setHours(
-        Number(h),
-        Number(m),
-        0,
-        0
-      );
+      prayerDate.setHours(Number(h), Number(m), 0, 0);
 
       if (prayerDate > now) {
-
         nextPrayer = p.name;
         break;
       }
     }
 
-    // After Isha -> highlight Fajr
+    // After Isha, highlight Fajr.
     if (!nextPrayer) {
       nextPrayer = "FAJR";
     }
 
-    document
-      .querySelectorAll(
-        ".prayer-card, .jummah-box"
-      )
-      .forEach(element => {
+    document.querySelectorAll(".prayer-card, .jummah-box").forEach(element => {
+      element.classList.remove("active");
 
-        element.classList.remove("active");
-
-        if (
-          element.dataset.prayer ===
-          nextPrayer
-        ) {
-          element.classList.add("active");
-        }
-
-      });
+      if (element.dataset.prayer === nextPrayer) {
+        element.classList.add("active");
+      }
+    });
   }
 
   update();
-
-  highlightInterval =
-    setInterval(update, 1000);
+  highlightInterval = setInterval(update, 1000);
 }
 
 /* ---------------- INIT ---------------- */
